@@ -1,0 +1,36 @@
+CREATE OR REPLACE FUNCTION FN_REG_DTM
+(
+    V_REG_DTM IN DATE
+)
+
+RETURN VARCHAR2 IS V_DTM VARCHAR2 (20 Byte);
+/******************************************************************************
+   NAME:       FN_REG_DTM
+   PURPOSE:    등록 일자를 형식대로 반환한다.
+               금일       - 시간:분
+               어제 이후  - 월.일
+
+   REVISIONS:
+   Ver           Date           Author           Description
+   ---------  ----------  ---------------  ------------------------------------
+   1.0      2019-09-26       김민기      1. Created this function.
+
+   NOTES:
+     
+******************************************************************************/
+BEGIN
+
+    SELECT CASE WHEN TRUNC(SYSDATE) = TRUNC(V_REG_DTM) THEN TO_CHAR(V_REG_DTM, 'HH24:MI') 
+                ELSE TO_CHAR(V_REG_DTM, 'MM.DD')
+           END INTO V_DTM
+    FROM DUAL;
+
+    RETURN V_DTM;
+
+    EXCEPTION
+     WHEN NO_DATA_FOUND THEN
+       RETURN '';
+     WHEN OTHERS THEN
+       RETURN '';
+END FN_REG_DTM;
+
