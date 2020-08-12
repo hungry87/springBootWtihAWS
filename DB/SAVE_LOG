@@ -1,0 +1,46 @@
+CREATE OR REPLACE PROCEDURE SAVE_LOG
+(
+          IP_REG_DTM IN  VARCHAR2
+        , IP_PRG_ID IN  VARCHAR2
+        , IP_PRG_NAME IN VARCHAR2
+        , IP_PROC_GB IN VARCHAR2
+        , IP_MSG IN VARCHAR2
+)
+IS
+    V_RETURN VARCHAR2(100);
+     /*******************************************************
+      함수명   : SAVE_LOG
+      처리내용 : 배치로그 기록
+    *******************************************************/
+--------------------------------------------------------------------------------
+BEGIN
+    V_RETURN := '0';
+    DBMS_OUTPUT.ENABLE (10);
+         
+
+        INSERT INTO HMP_SYS_BATCH_LOG(
+                    LOG_SEQ
+                   ,REG_DTM
+                   ,PROGRAM_ID
+                   ,PROGRAM_NM
+                   ,PROC_GBN
+                   ,CNTNT
+                  )
+             VALUES(
+                      HMP_SYS_BATCH_LOG_LOG_SEQ.NEXTVAL
+                    , IP_REG_DTM
+                    , IP_PRG_ID
+                    , IP_PRG_NAME
+                    , IP_PROC_GB
+                    , IP_MSG
+                   );
+    dbms_output.put_line(IP_REG_DTM||': ('||IP_PRG_ID||')    ' ||IP_MSG);                   
+    COMMIT;
+
+
+
+   EXCEPTION
+     WHEN OTHERS THEN
+         dbms_output.put_line('PKG_UTIL_SYSTEM FAIL : ' || SQLCODE || ' - ' || SUBSTR(SQLERRM,1,100));
+
+END SAVE_LOG;

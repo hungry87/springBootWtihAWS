@@ -1,0 +1,57 @@
+CREATE OR REPLACE PROCEDURE SP_PARAM_NONE
+IS
+        PROGRAM_NAME    CONSTANT  VARCHAR2(100):= '톡MR 하이라이트 Best Matching TOP 3'; /* 프로그램명 */
+        PROGRAM_ID      CONSTANT  VARCHAR2(100):= 'SP_TALK_BEST_MATCH_MONTHLY'; /* 프로그램ID */
+
+        TALK_SEND_MAX_SCORE CONSTANT NUMBER := 50;
+        TALK_FEED_MAX_SCORE CONSTANT NUMBER := 50;
+        
+        PRE_1MON_DT  VARCHAR2(6);    /* YYYYMM(전월) */
+/******************************************************************************
+   NAME:       SP_TALK_BEST_MATCHING_MONTHLY
+   PURPOSE:    톡MR 하이라이트 Best Matching TOP 3
+   
+   REVISIONS:
+   Ver        Date            Author               Description
+   ---------  --------------  ------------------   ------------------------------------      
+   1.0        2020.02.03      김민기               전월 기준 월배치
+
+   NOTES:
+
+******************************************************************************/    
+BEGIN
+    SAVE_LOG(to_char(SYSDATE, 'YYYYMMDDHH24MISS'), PROGRAM_ID, PROGRAM_NAME , 'I', 'PROC 개시' );
+
+    SELECT TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMM') INTO PRE_1MON_DT FROM DUAL; 
+    
+    INSERT INTO HMP_MR_TALK_BEST_MATCH
+        (DT, MR_ID, ENAME, MEM_ID, MEM_HANGL_NM, ITEM_CNT, ITEM_SCORE, ITEM_RANK, REG_DTM)
+    
+    SELECT
+        PRE_1MON_DT AS DT
+        , A.MR_ID
+        , A.ENAME
+        , A.MEM_ID
+        , A.MEM_HANGL_NM
+        , A.CNT AS ITEM_CNT
+        , A.SCORE AS ITEM_SCORE
+        , A.RK AS ITEM_RANK
+        , SYSDATE AS REG_DTM
+    FROM DUAL
+    WHERE 1 = 1
+        AND A.RN <= 3
+    ;      
+    
+    SAVE_LOG(to_char(SYSDATE, 'YYYYMMDDHH24MISS'), PROGRAM_ID, PROGRAM_NAME , 'I', 'Insert Cnt : ' || SQL%ROWCOUNT); 
+    SAVE_LOG(to_char(SYSDATE, 'YYYYMMDDHH24MISS'), PROGRAM_ID, PROGRAM_NAME , 'I', 'PROC 종료' );   
+    
+    COMMIT;
+
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            NULL;
+        WHEN OTHERS THEN
+        SAVE_LOG(to_char(SYSDATE, 'YYYYMMDDHH24MISS'),PROGRAM_ID, PROGRAM_NAME , 'E', SQLCODE || ' - ' || SUBSTR(SQLERRM,1,100) );
+        ROLLBACK ;
+        
+END SP_PARAM_NONE;
