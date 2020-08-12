@@ -1,0 +1,43 @@
+CREATE OR REPLACE FUNCTION FN_ARRAY_CD_NM
+(
+    pARRAY_CD IN VARCHAR2
+   ,pGRP_CD IN VARCHAR2
+   ,pGUBUN IN VARCHAR2
+)
+
+RETURN VARCHAR2 IS vCD_NM  VARCHAR2 (2000);
+/******************************************************************************
+   NAME:       FN_ARRAY_CD_NM
+   PURPOSE:    한컬럼에 특정구분으로 복수로 있는 공통코드값을 공통코드 명으로 변환
+
+   REVISIONS:
+   Ver           Date           Author           Description
+   ---------  ----------  ---------------  ------------------------------------
+   1.0                                     1. Created this function.
+
+   NOTES:
+     
+******************************************************************************/
+
+BEGIN
+
+    SELECT LISTAGG(B.CD_NM, pGUBUN) WITHIN GROUP(ORDER BY B.CD_NM) INTO vCD_NM
+    FROM (  SELECT SUBSTR(
+                        WDATA,
+                        INSTR(WDATA, pGUBUN, 1, LEVEL)+1,
+                        INSTR(WDATA, pGUBUN, 1, LEVEL+1) - INSTR(WDATA, pGUBUN, 1, LEVEL) - 1
+                   ) UINT_CD
+            FROM (SELECT  pGUBUN || V_ARRAY_CD || pGUBUN AS WDATA FROM DUAL)
+            CONNECT BY LEVEL <= LENGTH(WDATA) - LENGTH(REPLACE(WDATA, pGUBUN)) - 1       
+    ) A, HMP_COMM_CD B
+    WHERE B.GRP_CD = pGRP_CD
+        AND A.UINT_CD = B.CD;
+
+   RETURN vCD_NM;
+
+   EXCEPTION
+     WHEN NO_DATA_FOUND THEN
+       RETURN '';
+     WHEN OTHERS THEN
+       RETURN '';
+END FN_ARRAY_CD_NM;
