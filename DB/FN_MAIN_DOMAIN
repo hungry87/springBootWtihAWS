@@ -1,0 +1,168 @@
+CREATE OR REPLACE FUNCTION FN_MAIN_DOMAIN
+(
+    pMEM_ID IN VARCHAR2
+)
+RETURN VARCHAR2 IS
+/******************************************************************************
+   NAME:       FN_MAIN_DOMAIN
+   PURPOSE:    HMP 메인화면 추천 노출
+
+   REVISIONS:
+   Ver           Date           Author           Description
+   ---------  ----------  ---------------  ------------------------------------
+   1.0        2019-10-29    김민기      1. Created this function.
+     
+******************************************************************************/
+
+--  코드값 구분
+--  01 : 오늘 참여 가능한 1:1 디테일/그룹 디테일 있는 경우
+--  02 : 아이한미 ETC 포트폴리오 아젠다 노출
+--  03 : 다른 품목의 아젠다 노출
+    -- FN_ABLE_OTHER_AGENDA
+--  04 : 최근 참여 제품의 아젠다 다음 SEQ 노출
+    -- FN_ABLE_AGENDA
+--  05 : 그룹 디테일 아젠다 노출
+    -- FN_ABLE_GRP_DTL
+--  06 : 신청 가능한 1분 영상
+    -- FN_ABLE_EDT_DTL
+--  99 : 디폴트 배너 노출
+
+    CODE  VARCHAR2 (2);
+    EXIST_YN  VARCHAR2 (10);
+
+BEGIN
+
+    --------------------------------------------------------
+    -- 오늘 참여 가능한 1:1 디테일/그룹 디테일이 있는가?
+    --------------------------------------------------------
+    SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END EXIST_YN INTO EXIST_YN
+    FROM DUAL;
+    
+    -- 오늘 참여 가능한 1:1 디테일/그룹 디테일 있는 경우
+    IF EXIST_YN = 'Y' THEN
+        CODE := '01';
+        
+    -- 전문과 체크
+    ELSE
+    
+        ----------------------------------------------
+        -- 치과/안과 제외 구분
+        ----------------------------------------------
+        SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END EXIST_YN INTO EXIST_YN
+        FROM HMP_USER
+        WHERE MEM_ID = pMEM_ID
+            AND MEM_GBN = 'D'
+            AND DEPART_GBN NOT IN ('12', '23');
+            
+        -- 치과/안과 비대상자
+        IF EXIST_YN = 'Y' THEN
+        
+            --------------------------------------------
+            -- 블락 회원일 경우 Default 코드
+            --------------------------------------------
+            SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END EXIST_YN INTO EXIST_YN
+            FROM HMP_CONSL_PRODUCT_TARGET
+            WHERE CUST_ID = pMEM_ID
+                AND PROD_NO = 0;
+           
+            IF EXIST_YN = 'Y' THEN
+                ----------------------------------------------
+                 -- ********* 신청 가능한 그룹 디테일(중복) *********
+                 ----------------------------------------------
+                 EXIST_YN := FN_ABLE_GRP_DTL(pMEM_ID);
+                 
+                 -- 신청 가능한 그룹 디테일 존재
+                 IF EXIST_YN = 'Y' THEN 
+                    -- 그룹 디테일 아젠다 노출
+                    CODE := '05';
+                 ELSE 
+                    --------------------------------------------
+                    -- 신청 가능한 1분 영상이 있는가?
+                    --------------------------------------------
+                    EXIST_YN := FN_ABLE_EDT_DTL(pMEM_ID);
+                    
+                    -- 신청 가능한 1분 영상 존재
+                    IF EXIST_YN = 'Y' THEN
+                        CODE := '06';
+                    ELSE
+                        -- 디폴트 배너 노출
+                        CODE := '99';
+                    END IF;
+                END IF;
+                
+            ELSE
+                --------------------------------------------
+                -- 1:1 디테일 예약 신청 이력(HMP_CONSL_RSRV_SCHD)
+                --------------------------------------------
+                SELECT CASE WHEN COUNT(*) > 0 THEN 'Y' ELSE 'N' END EXIST_YN INTO EXIST_YN
+                FROM HMP_CONSL_RSRV_SCHD
+                WHERE CUST_ID = pMEM_ID
+                    AND PRG_ST IN ('R','F','A');
+                
+                IF EXIST_YN = 'Y' THEN
+                    --------------------------------------------
+                    -- 예약 가능한 품목 내 아젠다가 있는가 ?
+                    --------------------------------------------
+                    EXIST_YN := FN_ABLE_AGENDA(pMEM_ID);
+                    
+                    IF EXIST_YN = 'Y' THEN
+                        -------------------------------------------------------
+                        -- 예약 가능한 아젠다 중 최근 참여 완료한 디테일의 제품을 제외한 다른 품목의 아젠다가 있는가?
+                        -------------------------------------------------------
+                        EXIST_YN := FN_ABLE_OTHER_AGENDA(pMEM_ID);
+                        
+                        IF EXIST_YN = 'Y' THEN
+                            --다른 품목의 아젠다 노출
+                            CODE := '03';
+                        ELSE
+                            -- 최근 참여 제품의 아젠다 다음 SEQ 노출
+                            CODE := '04';
+                        END IF;
+                        
+                    --------------------------------------------
+                    -- 예약 가능한 품목 내 아젠다 없는 경우
+                    --------------------------------------------    
+                    ELSE
+                        ----------------------------------------------------------
+                        -- ********* 신청 가능한 그룹 디테일(중복) *********
+                        ----------------------------------------------------------
+                        EXIST_YN := FN_ABLE_GRP_DTL(pMEM_ID);
+                        
+                        -- 신청 가능한 그룹 디테일 존재
+                        IF EXIST_YN = 'Y' THEN 
+                            -- 그룹 디테일 아젠다 노출
+                            CODE := '05';
+                        ELSE 
+                            --------------------------------------------
+                            -- 신청 가능한 1분 영상이 있는가?
+                            --------------------------------------------
+                            EXIST_YN := FN_ABLE_EDT_DTL(pMEM_ID);
+
+                            -- 신청 가능한 1분 영상 존재
+                            IF EXIST_YN = 'Y' THEN
+                                CODE := '06';
+                            ELSE
+                                -- 디폴트 배너 노출
+                                CODE := '99';
+                            END IF;
+                        END IF;
+                    END IF;
+                --------------------------------------------
+                -- 1:1 디테일 신청 이력 없을 경우
+                --------------------------------------------
+                ELSE
+                    -- 아이한미 ETC 포트폴리오 아젠다 노출 (이벤트 종료)
+                    CODE := '03';
+                END IF;
+            END IF;
+        END IF;
+    END IF;
+    
+   RETURN CODE;
+
+   EXCEPTION
+     WHEN NO_DATA_FOUND THEN
+       RETURN '99';
+     WHEN OTHERS THEN
+       RETURN '99';
+END FN_MAIN_DOMAIN;
